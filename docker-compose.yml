@@ -1,0 +1,88 @@
+version: "3"
+networks:
+  dbwebb:
+
+services:
+  db:
+    build:
+      context: ./Spark-mysql
+      dockerfile: Dockerfile
+    container_name: mysql-db
+    restart: always
+    ports:
+      - 3308:3306
+    networks:
+      dbwebb:
+
+  server:
+    build:
+      context: ./Spark-API-v1
+      target: builder
+      dockerfile: Dockerfile
+    container_name: api-server
+    restart: always
+    depends_on:
+      - db
+    stdin_open: true
+    tty: true
+    ports:
+      - "4000:3000"
+    networks:
+      dbwebb:
+    links:
+      - db:mysql-db
+
+  webclient-customer:
+    build:
+      context: ./Spark-webclient-customer
+      dockerfile: Dockerfile
+    container_name: webclient-customer
+    restart: always
+    ports:
+      - 3000:3000
+    expose:
+      - '3000'
+    stdin_open: true
+    links:
+      - server:api-server
+
+  webclient-admin:
+    build:
+      context: ./Spark-webclient-admin
+      dockerfile: Dockerfile
+    container_name: webclient-admin
+    restart: always
+    ports:
+      - 3001:3000
+    expose:
+      - '3000'
+    stdin_open: true
+    links:
+      - server:api-server
+
+  react_native:
+    build:
+      context: ./Spark-webapp
+      args:
+        - NODE_ENV=development
+    container_name: webapp
+    environment:
+      - NODE_ENV=development
+    tty: true
+    ports:
+      - '19006:19006'
+      - '19001:19001'
+      - '19002:19002'
+      - '19000:19000'
+    volumes:
+      - ./Spark-webapp/react_native:/opt/react_native/app:delegated
+      - ./Spark-webapp/react_native/package.json:/opt/react_native/package.json
+      - ./Spark-webapp/react_native/package-lock.json:/opt/react_native/package-lock.json
+      - notused:/opt/react_native/app/node_modules
+    healthcheck:
+      disable: true
+    links:
+      - server:api-server
+
+volumes:
+  notused:
